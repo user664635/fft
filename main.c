@@ -27,21 +27,39 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   return SDL_APP_CONTINUE;
 }
 
+static float f0 = 50e3, p0, f1 = 250e3, p1;
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
-  if (event->type == SDL_EVENT_QUIT)
+  switch (event->type) {
+  case SDL_EVENT_QUIT:
     return SDL_APP_SUCCESS;
+  case SDL_EVENT_MOUSE_MOTION: {
+    auto tmp = event->motion;
+    float x = tmp.x / w, y = 1 - tmp.y / h;
+    if (tmp.state != 1)
+      goto end;
+    if (x < .5) {
+      if (x < .25)
+        f0 = y * 1e6;
+      else
+        f1 = y * 1e6;
+    } else {
+      if (x < .75)
+        p0 = y * 2 - 1;
+      else
+        p1 = y * 2 - 1;
+    }
+  }
+  }
+end:
   return SDL_APP_CONTINUE;
 }
 
-static float f0 = 50e3, p0, f1 = 250e3, p1;
 #define clk __builtin_readcyclecounter()
 float f(float x) { return sinpi(f0 * x / 2 + p0) + sinpi(f1 * x / 2 + p1); }
 SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_SetRenderDrawColorFloat(renderer, 0, 0, 0, 0);
   SDL_RenderClear(renderer);
 
-  p0 = (clk >> 14 & 0xfffff) / 0xfffffp-1 - 1;
-  p1 = (clk >> 18 & 0xfffff) / 0xfffffp-1 - .1;
   for (int i = 0; i < n; ++i)
     in[i] = f(i / 1e6);
   long t0 = clk;
