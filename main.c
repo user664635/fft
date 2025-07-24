@@ -13,7 +13,7 @@ constexpr int w = 2048, h = 1000, n = 128;
 static float *in;
 static float complex *out;
 static fftwf_plan p;
-static SDL_FPoint arr[n];
+static SDL_FPoint arr[w];
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   if (!SDL_Init(SDL_INIT_VIDEO))
     return SDL_APP_FAILURE;
@@ -22,8 +22,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   in = fftwf_alloc_real(n);
   out = fftwf_alloc_complex(n);
   p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_MEASURE);
-  for (int i = 0; i < n; ++i)
-    arr[i].x = (float)i * w / n;
   return SDL_APP_CONTINUE;
 }
 
@@ -39,9 +37,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       goto end;
     if (x < .5) {
       if (x < .25)
-        f0 = y * 1e6;
+        f0 = y * 5e5;
       else
-        f1 = y * 1e6;
+        f1 = y * 5e5;
     } else {
       if (x < .75)
         p0 = y * 2 - 1;
@@ -56,17 +54,17 @@ end:
 
 #define clk __builtin_readcyclecounter()
 static float complex out1[n];
-float f(float x) { return sinpi(f0 * x / 2 + p0) + sinpi(f1 * x / 2 + p1); }
-void fft(float *in, float *out) {
+float f(float x) { return sinpi(f0 * 2 * x + p0) + sinpi(f1 * 2 * x + p1); }
+void fft(float *in, float complex *out) {
   for (int i = 0; i < n / 2; ++i) {
     float complex s = 0;
     for (int j = 0; j < n / 2; ++j)
-      s += in[j] * cexpf(M_PI * 1i * i * j / n);
+      s += in[j] * cexpf(M_PI * 2i * i * j / n);
     out[i] = s;
   }
 }
 SDL_AppResult SDL_AppIterate(void *appstate) {
-  SDL_SetRenderDrawColorFloat(renderer, 0, 0, 0, 0);
+  SDL_SetRenderDrawColorFloat(renderer, 0, 0, 0, 1);
   SDL_RenderClear(renderer);
 
   for (int i = 0; i < n; ++i)
@@ -79,9 +77,18 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   printf("%ld,%ld\n", t1 - t0, t2 - t1);
 
   float y = h * .25;
+  for (int i = 0; i < w; ++i)
+    arr[i].x = i;
+  for (int i = 0; i < w; ++i)
+    arr[i].y = f(i / 1e6 * n / w) * -y / 2 + y;
+  SDL_SetRenderDrawColorFloat(renderer, .5, .5, .5, 1);
+  SDL_RenderLines(renderer, arr, w);
+
+  for (int i = 0; i < n; ++i)
+    arr[i].x = (float)i * w / n;
   for (int i = 0; i < n; ++i)
     arr[i].y = in[i] * -y / 2 + y;
-  SDL_SetRenderDrawColorFloat(renderer, 1, 1, 1, 1);
+  SDL_SetRenderDrawColorFloat(renderer, 1, 1, 1, .5);
   SDL_RenderLines(renderer, arr, n);
 
   SDL_RenderDebugTextFormat(renderer, 0, 2 * y, "f0:%.0f", f0);
