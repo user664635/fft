@@ -8,7 +8,7 @@
 
 static SDL_Window *window;
 static SDL_Renderer *renderer;
-constexpr int w = 2048, h = 1000, n = 128;
+constexpr int w = 2048, h = 1000, n = 64;
 
 static float *in;
 static float complex *out;
@@ -59,22 +59,27 @@ void fft(float *in, float complex *out) {
   for (int i = 0; i < n / 2; ++i) {
     float complex s = 0;
     for (int j = 0; j < n / 2; ++j)
-      s += in[j] * cexpf(M_PI * 2i * i * j / n);
+      s += in[j] * cexpf(M_PI * -2i * i * j / n);
     out[i] = s;
   }
 }
+static long st0, st1;
+static double cnt;
 SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_SetRenderDrawColorFloat(renderer, 0, 0, 0, 1);
   SDL_RenderClear(renderer);
 
   for (int i = 0; i < n; ++i)
-    in[i] = f(i / 1e6);
+    out1[i] = in[i] = f(i / 1e6);
+  ++cnt;
   long t0 = clk;
   fftwf_execute(p);
   long t1 = clk;
   fft(in, out1);
   long t2 = clk;
-  printf("%ld,%ld\n", t1 - t0, t2 - t1);
+  long dt0 = t1 - t0, dt1 = t2 - t1;
+  st0 += dt0, st1 += dt1;
+  printf("%f,%f\n", st0 / cnt, st1 / cnt);
 
   float y = h * .25;
   for (int i = 0; i < w; ++i)
@@ -98,20 +103,20 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
   for (int i = 0; i < n; ++i)
     arr[i].y = crealf(out[i]) / n * -y + 3 * y;
-  SDL_SetRenderDrawColorFloat(renderer, 0, 1, 1, .5);
+  SDL_SetRenderDrawColorFloat(renderer, 0, 1, 0, .5);
   SDL_RenderLines(renderer, arr, n);
   for (int i = 0; i < n; ++i)
     arr[i].y = cimagf(out[i]) / n * -y + 3 * y;
-  SDL_SetRenderDrawColorFloat(renderer, 1, 0, 1, .5);
+  SDL_SetRenderDrawColorFloat(renderer, 1, 0, 0, .5);
   SDL_RenderLines(renderer, arr, n);
 
   for (int i = 0; i < n; ++i)
     arr[i].y = crealf(out1[i]) / n * -y + 3 * y;
-  SDL_SetRenderDrawColorFloat(renderer, 0, 1, 0, .5);
+  SDL_SetRenderDrawColorFloat(renderer, 0, 1, 1, .5);
   SDL_RenderLines(renderer, arr, n);
   for (int i = 0; i < n; ++i)
     arr[i].y = cimagf(out1[i]) / n * -y + 3 * y;
-  SDL_SetRenderDrawColorFloat(renderer, 1, 0, 0, .5);
+  SDL_SetRenderDrawColorFloat(renderer, 1, 0, 1, .5);
   SDL_RenderLines(renderer, arr, n);
 
   SDL_RenderPresent(renderer);
