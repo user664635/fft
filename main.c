@@ -8,7 +8,7 @@
 
 static SDL_Window *window;
 static SDL_Renderer *renderer;
-constexpr int w = 2048, h = 1000, n = 1024;
+constexpr int w = 2048, h = 1000, n = 128;
 
 static float *in;
 static float complex *out;
@@ -55,7 +55,16 @@ end:
 }
 
 #define clk __builtin_readcyclecounter()
+static float complex out1[n];
 float f(float x) { return sinpi(f0 * x / 2 + p0) + sinpi(f1 * x / 2 + p1); }
+void fft(float *in, float *out) {
+  for (int i = 0; i < n / 2; ++i) {
+    float complex s = 0;
+    for (int j = 0; j < n / 2; ++j)
+      s += in[j] * cexpf(M_PI * 1i * i * j / n);
+    out[i] = s;
+  }
+}
 SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_SetRenderDrawColorFloat(renderer, 0, 0, 0, 0);
   SDL_RenderClear(renderer);
@@ -65,7 +74,9 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   long t0 = clk;
   fftwf_execute(p);
   long t1 = clk;
-  printf("%ld\n", t1 - t0);
+  fft(in, out1);
+  long t2 = clk;
+  printf("%ld,%ld\n", t1 - t0, t2 - t1);
 
   float y = h * .25;
   for (int i = 0; i < n; ++i)
@@ -77,13 +88,23 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_RenderDebugTextFormat(renderer, w / 4., 2 * y, "f1:%.0f", f1);
   SDL_RenderDebugTextFormat(renderer, w / 2., 2 * y, "p0:%.5f", p0);
   SDL_RenderDebugTextFormat(renderer, w * .75, 2 * y, "p1:%.5f", p1);
+
   for (int i = 0; i < n; ++i)
     arr[i].y = crealf(out[i]) / n * -y + 3 * y;
-  SDL_SetRenderDrawColorFloat(renderer, 0, 1, 1, 1);
+  SDL_SetRenderDrawColorFloat(renderer, 0, 1, 1, .5);
   SDL_RenderLines(renderer, arr, n);
   for (int i = 0; i < n; ++i)
     arr[i].y = cimagf(out[i]) / n * -y + 3 * y;
-  SDL_SetRenderDrawColorFloat(renderer, 1, 0, 1, 1);
+  SDL_SetRenderDrawColorFloat(renderer, 1, 0, 1, .5);
+  SDL_RenderLines(renderer, arr, n);
+
+  for (int i = 0; i < n; ++i)
+    arr[i].y = crealf(out1[i]) / n * -y + 3 * y;
+  SDL_SetRenderDrawColorFloat(renderer, 0, 1, 0, .5);
+  SDL_RenderLines(renderer, arr, n);
+  for (int i = 0; i < n; ++i)
+    arr[i].y = cimagf(out1[i]) / n * -y + 3 * y;
+  SDL_SetRenderDrawColorFloat(renderer, 1, 0, 0, .5);
   SDL_RenderLines(renderer, arr, n);
 
   SDL_RenderPresent(renderer);
