@@ -11,20 +11,34 @@ static SDL_Renderer *renderer;
 constexpr int w = 2048, h = 1000, n = 64, logn = __builtin_ctz(n);
 
 static fftwf_plan p;
-static SDL_FPoint arr[w];
+static SDL_FPoint arr[w > n ? w : n];
 
 typedef float f32;
 typedef complex float c32;
 static int rev[n];
-static f32 *in;
+static c32 *in;
 static c32 *out, rot[n];
 static c32 out1[n];
 void fft_init() {
   for (int i = 0; i < n; ++i)
-    rev[i] = __builtin_bitreverse16(i) >> (16 - logn),
+    rev[i] = __builtin_bitreverse32(i) >> (32 - logn),
     rot[i] = cexp(-2i * M_PI * i / n);
 }
-void fft(f32 *in, c32 *out) {
+void fft(c32 const *restrict in, c32 *restrict out) {
+  for (int i = 0; i < n; ++i)
+    out[rev[i]] = in[i];
+  for (int i = 0; i < logn; ++i) {
+    int m = 1 << i;
+    for (int j = 0; j < n; j += m << 1)
+      for (int k = 0; k < m; ++k) {
+        c32 t = rot[k << (logn - i - 1)] * out[j + k + m];
+        c32 u = out[j + k];
+        out[j + k] = u + t;
+        out[j + k + m] = u - t;
+      }
+  }
+}
+void fftr(f32 const *restrict in, c32 *restrict out) {
   for (int i = 0; i < n; ++i)
     out[rev[i]] = in[i];
   for (int i = 0; i < logn; ++i) {
@@ -44,9 +58,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     return SDL_APP_FAILURE;
   if (!SDL_CreateWindowAndRenderer("fft", w, h, 0, &window, &renderer))
     return SDL_APP_FAILURE;
-  in = fftwf_alloc_real(n);
+  in = fftwf_alloc_complex(n);
   out = fftwf_alloc_complex(n);
-  p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_MEASURE);
+  p = fftwf_plan_dft_1d(n, in, out, FFTW_FORWARD, FFTW_MEASURE);
   fft_init();
   return SDL_APP_CONTINUE;
 }
