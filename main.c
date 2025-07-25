@@ -81,19 +81,20 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_RenderClear(renderer);
 
   constexpr int fn = w;
-  static long st0, st1, st2, cnt;
+  static long st[4], cnt;
   static float f0data[fn], f1data[fn], f0p[fn], f1p[fn];
   f32 in[n], a[n / 2 + 1], p[n / 2 + 1];
   c32 out[n];
   for (int i = 0; i < n; ++i)
     in[i] = f((i + cnt) / fm);
 
-  long t0 = clk;
+  long t[5];
+  t[0] = clk;
   fft(in, out);
-  long t1 = clk;
+  t[1] = clk;
   for (int i = 0; i < n / 2 + 1; ++i)
     a[i] = cabsf(out[i]), p[i] = cargf(out[i]);
-  long t2 = clk;
+  t[2] = clk;
   f32 prev = 0, smax = n * .3, fi[2] = {}, fp[2] = {};
   for (int i = 0, p = 0, s = 0; i < n / 2 + 1; ++i) {
     f32 sum = prev + a[i];
@@ -105,6 +106,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
       smax = n * .3, ++p, s = 0;
     prev = a[i];
   }
+  t[3] = clk;
   f0data[cnt % fn] = fi[0];
   f1data[cnt % fn] = fi[1];
   f0p[cnt % fn] = fp[0];
@@ -121,14 +123,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   f1avg *= tmp;
   f0pa /= fn;
   f1pa /= fn;
-  long t3 = clk;
+  t[4] = clk;
 
   f32 c = ++cnt;
-  st0 += t1 - t0;
-  st1 += t2 - t1;
-  st2 += t3 - t2;
-  printf("%.3f\t%.3f\t%.3f\n%.3f,%.3f\t%.0f,%.0f\n", st0 / c, st1 / c, st2 / c,
-         f0pa, f1pa, f0avg, f1avg);
+  for (int i = 1; i < 5; ++i)
+    st[i - 1] += t[i] - t[i - 1], printf("%.3f\t", st[i - 1] / c);
+  printf("\n%.3f,%.3f\t%.0f,%.0f\n", f0pa, f1pa, f0avg, f1avg);
 
   f32 y = h * .25;
   for (int i = 0; i < w; ++i)
