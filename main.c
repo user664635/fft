@@ -16,7 +16,7 @@ static SDL_FPoint arr[w > n ? w : n];
 typedef float f32;
 typedef complex float c32;
 static int rev[n];
-static c32 *in;
+static f32 *in;
 static c32 *out, rot[n];
 static c32 out1[n];
 void fft_init() {
@@ -24,21 +24,7 @@ void fft_init() {
     rev[i] = __builtin_bitreverse32(i) >> (32 - logn),
     rot[i] = cexp(-2i * M_PI * i / n);
 }
-void fft(c32 const *restrict in, c32 *restrict out) {
-  for (int i = 0; i < n; ++i)
-    out[rev[i]] = in[i];
-  for (int i = 0; i < logn; ++i) {
-    int m = 1 << i;
-    for (int j = 0; j < n; j += m << 1)
-      for (int k = 0; k < m; ++k) {
-        c32 t = rot[k << (logn - i - 1)] * out[j + k + m];
-        c32 u = out[j + k];
-        out[j + k] = u + t;
-        out[j + k + m] = u - t;
-      }
-  }
-}
-void fftr(f32 const *restrict in, c32 *restrict out) {
+void fft(f32 const *restrict in, c32 *restrict out) {
   for (int i = 0; i < n; ++i)
     out[rev[i]] = in[i];
   for (int i = 0; i < logn; ++i) {
@@ -58,15 +44,16 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     return SDL_APP_FAILURE;
   if (!SDL_CreateWindowAndRenderer("fft", w, h, 0, &window, &renderer))
     return SDL_APP_FAILURE;
-  in = fftwf_alloc_complex(n);
+  in = fftwf_alloc_real(n);
   out = fftwf_alloc_complex(n);
-  p = fftwf_plan_dft_1d(n, in, out, FFTW_FORWARD, FFTW_MEASURE);
+  p = fftwf_plan_dft_r2c_1d(n, in, out, FFTW_MEASURE);
   fft_init();
   return SDL_APP_CONTINUE;
 }
 
 static f32 f0 = 50e3, p0, f1 = 250e3, p1;
-f32 f(f32 x) { return sinpi(f0 * 2 * x + p0) + sinpi(f1 * 2 * x + p1); }
+f32 tri(f32 x) { return fabs(2 - fmodf(x * 2, 4)) - 1; }
+f32 f(f32 x) { return sinpi(f0 * 2 * x + p0) + tri(f1 * 2 * x + p1); }
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
   switch (event->type) {
   case SDL_EVENT_QUIT:
@@ -133,20 +120,20 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_RenderDebugTextFormat(renderer, w * .75, 2 * y, "p1:%.5f", p1);
 
   for (int i = 0; i < n; ++i)
-    arr[i].y = crealf(out[i]) / n * -y + 3 * y;
+    arr[i].y = cabsf(out[i]) / n * -y + 3 * y;
   SDL_SetRenderDrawColorFloat(renderer, 0, 1, 0, .5);
   SDL_RenderLines(renderer, arr, n);
   for (int i = 0; i < n; ++i)
-    arr[i].y = cimagf(out[i]) / n * -y + 3 * y;
+    arr[i].y = cargf(out[i]) / n * -y + 3 * y;
   SDL_SetRenderDrawColorFloat(renderer, 1, 0, 0, .5);
   SDL_RenderLines(renderer, arr, n);
 
   for (int i = 0; i < n; ++i)
-    arr[i].y = crealf(out1[i]) / n * -y + 3 * y;
+    arr[i].y = cabsf(out1[i]) / n * -y + 3 * y;
   SDL_SetRenderDrawColorFloat(renderer, 0, 1, 1, .5);
   SDL_RenderLines(renderer, arr, n);
   for (int i = 0; i < n; ++i)
-    arr[i].y = cimagf(out1[i]) / n * -y + 3 * y;
+    arr[i].y = cargf(out1[i]) / n * -y + 3 * y;
   SDL_SetRenderDrawColorFloat(renderer, 1, 0, 1, .5);
   SDL_RenderLines(renderer, arr, n);
 
