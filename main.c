@@ -92,13 +92,16 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   for (int i = 0; i < n / 2 + 1; ++i)
     a[i] = cabsf(out[i]), p[i] = cargf(out[i]);
   long t2 = clk;
-  f32 max = n / 4., fp[2] = {};
+  f32 prev = 0, smax = n * .3, fi[2] = {}, fp[2] = {};
   for (int i = 0, p = 0, s = 0; i < n / 2 + 1; ++i) {
-    if (a[i] > max) {
-      max = a[i], s = 1;
-      fp[p] = i * fm / n;
+    f32 sum = prev + a[i];
+    if (sum > smax) {
+      smax = sum, s = 1;
+      fi[p] = prev > a[i] ? i - 1 : i;
+      fp[p] = sum;
     } else if (s)
-      max = n / 4., ++p, s = 0;
+      smax = n * .3, ++p, s = 0;
+    prev = a[i];
   }
   long t3 = clk;
 
@@ -106,7 +109,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   st0 += t1 - t0;
   st1 += t2 - t1;
   st2 += t3 - t2;
-  printf("%.3f,%.3f,%.3f,%.0f,%.0f\n", st0 / c, st1 / c, st2 / c, fp[0], fp[1]);
+  printf("%.3f,%.3f,%.3f,%.0f,%.0f,%.0f,%.0f\n", st0 / c, st1 / c, st2 / c,
+         fp[0], fp[1], fi[0] * fm / n, fi[1] * fm / n);
 
   f32 y = h * .25;
   for (int i = 0; i < w; ++i)
