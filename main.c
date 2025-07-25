@@ -80,12 +80,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_SetRenderDrawColorFloat(renderer, 0, 0, 0, 1);
   SDL_RenderClear(renderer);
 
+  constexpr int fn = w;
+  static long st0, st1, st2, cnt;
+  static float f0data[fn], f1data[fn], f0p[fn], f1p[fn];
   f32 in[n], a[n / 2 + 1], p[n / 2 + 1];
   c32 out[n];
   for (int i = 0; i < n; ++i)
-    in[i] = f(i / fm);
+    in[i] = f((i + cnt) / fm);
 
-  static long st0, st1, st2, cnt;
   long t0 = clk;
   fft(in, out);
   long t1 = clk;
@@ -103,14 +105,30 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
       smax = n * .3, ++p, s = 0;
     prev = a[i];
   }
+  f0data[cnt % fn] = fi[0];
+  f1data[cnt % fn] = fi[1];
+  f0p[cnt % fn] = fp[0];
+  f1p[cnt % fn] = fp[1];
+  float f0avg = 0, f1avg = 0, f0pa = 0, f1pa = 0;
+  for (int i = 0; i < fn; ++i) {
+    f0avg += f0data[i];
+    f1avg += f1data[i];
+    f0pa += f0p[i];
+    f1pa += f1p[i];
+  }
+  float tmp = fm / fn / n;
+  f0avg *= tmp;
+  f1avg *= tmp;
+  f0pa /= fn;
+  f1pa /= fn;
   long t3 = clk;
 
   f32 c = ++cnt;
   st0 += t1 - t0;
   st1 += t2 - t1;
   st2 += t3 - t2;
-  printf("%.3f,%.3f,%.3f,%.0f,%.0f,%.0f,%.0f\n", st0 / c, st1 / c, st2 / c,
-         fp[0], fp[1], fi[0] * fm / n, fi[1] * fm / n);
+  printf("%.3f\t%.3f\t%.3f\n%.3f,%.3f\t%.0f,%.0f\n", st0 / c, st1 / c, st2 / c,
+         f0pa, f1pa, f0avg, f1avg);
 
   f32 y = h * .25;
   for (int i = 0; i < w; ++i)
